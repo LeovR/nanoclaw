@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# 05b-list-groups.sh — Query WhatsApp groups from the database.
+# 05b-list-rooms.sh — Query Matrix rooms from the database.
 # Output: pipe-separated JID|name lines, most recent first.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,4 +15,4 @@ if [ ! -f "$DB_PATH" ]; then
   exit 1
 fi
 
-sqlite3 "$DB_PATH" "SELECT jid, name FROM chats WHERE jid LIKE '%@g.us' AND jid <> '__group_sync__' AND name <> jid ORDER BY last_message_time DESC LIMIT $LIMIT"
+sqlite3 "$DB_PATH" "SELECT jid, name FROM chats WHERE jid LIKE '!%' AND jid <> '__group_sync__' AND name <> jid ORDER BY last_message_time DESC LIMIT $LIMIT"

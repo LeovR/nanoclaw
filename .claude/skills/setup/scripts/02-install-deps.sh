@@ -32,7 +32,7 @@ fi
 
 # Verify key packages
 MISSING=""
-for pkg in @whiskeysockets/baileys better-sqlite3 pino qrcode; do
+for pkg in matrix-js-sdk better-sqlite3 pino; do
   if [ ! -d "$PROJECT_ROOT/node_modules/$pkg" ]; then
     MISSING="$MISSING $pkg"
   fi

@@ -66,10 +66,14 @@ if [ -f "$PROJECT_ROOT/.env" ]; then
   log ".env file found"
 fi
 
-HAS_AUTH="false"
-if [ -d "$PROJECT_ROOT/store/auth" ] && [ "$(ls -A "$PROJECT_ROOT/store/auth" 2>/dev/null)" ]; then
-  HAS_AUTH="true"
-  log "WhatsApp auth credentials found"
+HAS_MATRIX_CONFIG="false"
+if [ -f "$PROJECT_ROOT/.env" ]; then
+  if grep -qE "^MATRIX_HOMESERVER_URL=.+" "$PROJECT_ROOT/.env" && \
+     grep -qE "^MATRIX_ACCESS_TOKEN=.+" "$PROJECT_ROOT/.env" && \
+     grep -qE "^MATRIX_BOT_USER_ID=.+" "$PROJECT_ROOT/.env"; then
+    HAS_MATRIX_CONFIG="true"
+    log "Matrix configuration found in .env"
+  fi
 fi
 
 HAS_REGISTERED_GROUPS="false"
@@ -95,7 +99,7 @@ NODE_OK: $NODE_OK
 APPLE_CONTAINER: $APPLE_CONTAINER
 DOCKER: $DOCKER
 HAS_ENV: $HAS_ENV
-HAS_AUTH: $HAS_AUTH
+HAS_MATRIX_CONFIG: $HAS_MATRIX_CONFIG
 HAS_REGISTERED_GROUPS: $HAS_REGISTERED_GROUPS
 STATUS: success
 LOG: logs/setup.log
