@@ -62,12 +62,16 @@ if [ -f "$PROJECT_ROOT/.env" ]; then
 fi
 log "Credentials: $CREDENTIALS"
 
-# 4. Check WhatsApp auth
-WHATSAPP_AUTH="not_found"
-if [ -d "$PROJECT_ROOT/store/auth" ] && [ "$(ls -A "$PROJECT_ROOT/store/auth" 2>/dev/null)" ]; then
-  WHATSAPP_AUTH="authenticated"
+# 4. Check Matrix config
+MATRIX_CONFIG="missing"
+if [ -f "$PROJECT_ROOT/.env" ]; then
+  if grep -qE "^MATRIX_HOMESERVER_URL=.+" "$PROJECT_ROOT/.env" && \
+     grep -qE "^MATRIX_ACCESS_TOKEN=.+" "$PROJECT_ROOT/.env" && \
+     grep -qE "^MATRIX_BOT_USER_ID=.+" "$PROJECT_ROOT/.env"; then
+    MATRIX_CONFIG="configured"
+  fi
 fi
-log "WhatsApp auth: $WHATSAPP_AUTH"
+log "Matrix config: $MATRIX_CONFIG"
 
 # 5. Check registered groups (in SQLite — the JSON file gets migrated away on startup)
 REGISTERED_GROUPS=0
@@ -85,7 +89,7 @@ log "Mount allowlist: $MOUNT_ALLOWLIST"
 
 # Determine overall status
 STATUS="success"
-if [ "$SERVICE" != "running" ] || [ "$CREDENTIALS" = "missing" ] || [ "$WHATSAPP_AUTH" = "not_found" ] || [ "$REGISTERED_GROUPS" -eq 0 ] 2>/dev/null; then
+if [ "$SERVICE" != "running" ] || [ "$CREDENTIALS" = "missing" ] || [ "$MATRIX_CONFIG" = "missing" ] || [ "$REGISTERED_GROUPS" -eq 0 ] 2>/dev/null; then
   STATUS="failed"
 fi
 
@@ -96,7 +100,7 @@ cat <<EOF
 SERVICE: $SERVICE
 CONTAINER_RUNTIME: $CONTAINER_RUNTIME
 CREDENTIALS: $CREDENTIALS
-WHATSAPP_AUTH: $WHATSAPP_AUTH
+MATRIX_CONFIG: $MATRIX_CONFIG
 REGISTERED_GROUPS: $REGISTERED_GROUPS
 MOUNT_ALLOWLIST: $MOUNT_ALLOWLIST
 STATUS: $STATUS

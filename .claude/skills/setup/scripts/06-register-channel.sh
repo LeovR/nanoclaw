@@ -56,7 +56,10 @@ TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%M:%S.000Z')
 DB_PATH="$PROJECT_ROOT/store/messages.db"
 REQUIRES_TRIGGER_INT=$( [ "$REQUIRES_TRIGGER" = "true" ] && echo 1 || echo 0 )
 
-sqlite3 "$DB_PATH" "INSERT OR REPLACE INTO registered_groups (jid, name, folder, trigger_pattern, added_at, container_config, requires_trigger) VALUES ('$JID', '$NAME', '$FOLDER', '$TRIGGER', '$TIMESTAMP', NULL, $REQUIRES_TRIGGER_INT);"
+sqlite3 "$DB_PATH" <<SQLEOF
+INSERT OR REPLACE INTO registered_groups (jid, name, folder, trigger_pattern, added_at, container_config, requires_trigger)
+VALUES ('${JID//\\/}', '${NAME}', '${FOLDER}', '${TRIGGER}', '${TIMESTAMP}', NULL, ${REQUIRES_TRIGGER_INT});
+SQLEOF
 
 log "Wrote registration to SQLite"
 
@@ -71,8 +74,8 @@ if [ "$ASSISTANT_NAME" != "Andy" ]; then
 
   for md_file in groups/global/CLAUDE.md groups/main/CLAUDE.md; do
     if [ -f "$PROJECT_ROOT/$md_file" ]; then
-      sed -i '' "s/^# Andy$/# $ASSISTANT_NAME/" "$PROJECT_ROOT/$md_file"
-      sed -i '' "s/You are Andy/You are $ASSISTANT_NAME/g" "$PROJECT_ROOT/$md_file"
+      sed -i "s/^# Andy$/# $ASSISTANT_NAME/" "$PROJECT_ROOT/$md_file"
+      sed -i "s/You are Andy/You are $ASSISTANT_NAME/g" "$PROJECT_ROOT/$md_file"
       log "Updated $md_file"
     else
       log "WARNING: $md_file not found, skipping name update"
@@ -82,7 +85,7 @@ if [ "$ASSISTANT_NAME" != "Andy" ]; then
   # Add ASSISTANT_NAME to .env so config.ts picks it up
   ENV_FILE="$PROJECT_ROOT/.env"
   if [ -f "$ENV_FILE" ] && grep -q '^ASSISTANT_NAME=' "$ENV_FILE"; then
-    sed "s|^ASSISTANT_NAME=.*|ASSISTANT_NAME=\"$ASSISTANT_NAME\"|" "$ENV_FILE" > "$ENV_FILE.tmp" && mv "$ENV_FILE.tmp" "$ENV_FILE"
+    sed -i "s|^ASSISTANT_NAME=.*|ASSISTANT_NAME=\"$ASSISTANT_NAME\"|" "$ENV_FILE"
   else
     echo "ASSISTANT_NAME=\"$ASSISTANT_NAME\"" >> "$ENV_FILE"
   fi

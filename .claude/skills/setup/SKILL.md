@@ -1,13 +1,13 @@
 ---
 name: setup
-description: Run initial NanoClaw setup. Use when user wants to install dependencies, authenticate WhatsApp, register their main channel, or start the background services. Triggers on "setup", "install", "configure nanoclaw", or first-time setup requests.
+description: Run initial NanoClaw setup. Use when user wants to install dependencies, configure Matrix credentials, register their main channel, or start the background services. Triggers on "setup", "install", "configure nanoclaw", or first-time setup requests.
 ---
 
 # NanoClaw Setup
 
-Run setup scripts automatically. Only pause when user action is required (WhatsApp authentication, configuration choices). Scripts live in `.claude/skills/setup/scripts/` and emit structured status blocks to stdout. Verbose logs go to `logs/setup.log`.
+Run setup scripts automatically. Only pause when user action is required (configuration choices, pasting credentials). Scripts live in `.claude/skills/setup/scripts/` and emit structured status blocks to stdout. Verbose logs go to `logs/setup.log`.
 
-**Principle:** When something is broken or missing, fix it. Don't tell the user to go fix it themselves unless it genuinely requires their manual action (e.g. scanning a QR code, pasting a secret token). If a dependency is missing, install it. If a service won't start, diagnose and repair. Ask the user for permission when needed, then do the work.
+**Principle:** When something is broken or missing, fix it. Don't tell the user to go fix it themselves unless it genuinely requires their manual action (e.g. pasting a secret token). If a dependency is missing, install it. If a service won't start, diagnose and repair. Ask the user for permission when needed, then do the work.
 
 **UX Note:** Use `AskUserQuestion` for all user-facing questions.
 
@@ -15,7 +15,7 @@ Run setup scripts automatically. Only pause when user action is required (WhatsA
 
 Run `./.claude/skills/setup/scripts/01-check-environment.sh` and parse the status block.
 
-- If HAS_AUTH=true → note that WhatsApp auth exists, offer to skip step 5
+- If HAS_MATRIX_CONFIG=true → note that Matrix credentials exist, offer to skip step 5
 - If HAS_REGISTERED_GROUPS=true → note existing config, offer to skip or reconfigure
 - Record PLATFORM, APPLE_CONTAINER, and DOCKER values for step 3
 
@@ -98,66 +98,60 @@ Do NOT ask the user to paste the token into the chat. Do NOT use AskUserQuestion
 
 **API key:** Tell the user to add `ANTHROPIC_API_KEY=<key>` to the `.env` file in the project root, then let you know when done. Once confirmed, verify the `.env` file has the key.
 
-## 5. WhatsApp Authentication
+## 5. Matrix Configuration
 
-If HAS_AUTH=true from step 1, confirm with user: "WhatsApp credentials already exist. Want to keep them or re-authenticate?" If keeping, skip to step 6.
+If HAS_MATRIX_CONFIG=true from step 1, confirm with user: "Matrix credentials already configured. Want to keep them or reconfigure?" If keeping, skip to step 6.
 
-AskUserQuestion: QR code in browser (recommended) vs pairing code vs QR code in terminal?
+Tell the user you need three values to connect to Matrix, then collect them:
 
-- **QR browser:** Run `./.claude/skills/setup/scripts/04-auth-whatsapp.sh --method qr-browser` (Bash timeout: 150000ms)
-- **Pairing code:** Ask for phone number first (country code, no + or spaces, e.g. 14155551234). Run `./.claude/skills/setup/scripts/04-auth-whatsapp.sh --method pairing-code --phone NUMBER` (Bash timeout: 150000ms). Display the PAIRING_CODE from the status block with instructions.
-- **QR terminal:** Run `./.claude/skills/setup/scripts/04-auth-whatsapp.sh --method qr-terminal`. Tell user to run `cd PROJECT_PATH && npm run auth` in another terminal. Wait for confirmation.
+1. **Homeserver URL** — e.g. `https://matrix.example.com`. Ask the user to provide it.
+2. **Bot user ID** — e.g. `@botname:matrix.example.com`. The Matrix user account the bot will use. Ask the user to provide it.
+3. **Access token** — Tell the user how to get one:
+   - **From Element:** Settings → Help & About → scroll to "Access Token" (Advanced section)
+   - **Via API:** `curl -X POST https://HOMESERVER/_matrix/client/v3/login -d '{"type":"m.login.password","user":"USERNAME","password":"PASSWORD"}'` and copy the `access_token` from the response
+   - Ask the user to paste the access token (or tell you when they've added it to `.env`)
 
-If AUTH_STATUS=already_authenticated → skip ahead.
+Write all three values to `.env`:
+```
+MATRIX_HOMESERVER_URL=<url>
+MATRIX_ACCESS_TOKEN=<token>
+MATRIX_BOT_USER_ID=<user_id>
+```
 
-**If failed:**
-- qr_timeout → QR expired. Automatically re-run the auth script to generate a fresh QR. Tell user a new QR is ready.
-- logged_out → Delete `store/auth/` and re-run auth automatically.
-- 515 → Stream error during pairing. The auth script handles reconnection, but if it persists, re-run the auth script.
-- timeout → Auth took too long. Ask user if they scanned/entered the code, offer to retry.
+Validate by running `./.claude/skills/setup/scripts/04-configure-matrix.sh` and parse the status block.
+
+**If MATRIX_CONFIG=invalid:**
+- `whoami_failed` → The homeserver rejected the token. Ask user to double-check the homeserver URL and access token. The token may have expired — generate a fresh one.
+- `incomplete_config` → One or more values are empty. Check `.env` and fill in the missing ones.
 
 ## 6. Configure Trigger and Channel Type
 
-First, determine the phone number situation. Get the bot's WhatsApp number from `store/auth/creds.json`:
-`node -e "const c=require('./store/auth/creds.json');console.log(c.me.id.split(':')[0].split('@')[0])"`
+AskUserQuestion: What trigger word? (default: Andy). In group rooms, messages starting with @TriggerWord go to Claude. In DM rooms, no prefix needed.
 
-AskUserQuestion: Does the bot share your personal WhatsApp number, or does it have its own dedicated phone number?
+AskUserQuestion: Main channel type?
+1. DM with the bot (recommended) — A direct-message room between you and the bot.
+2. Group room — A Matrix room (can have multiple members).
 
-AskUserQuestion: What trigger word? (default: Andy). In group chats, messages starting with @TriggerWord go to Claude. In the main channel, no prefix needed.
+## 7. Sync and Select Room
 
-AskUserQuestion: Main channel type? (options depend on phone number setup)
+**For DM:** Tell the user to open their Matrix client (Element, etc.) and start a DM with the bot user (the MATRIX_BOT_USER_ID from step 5). Wait for them to confirm, then sync rooms.
 
-**If bot shares user's number (same phone):**
-1. Self-chat (chat with yourself) — Recommended. You message yourself and the bot responds.
-2. Solo group (just you) — A group where you're the only member. Good if you want message history separate from self-chat.
+**For group:** Tell the user to create a room and invite the bot user, or use an existing room where the bot is a member. Wait for them to confirm, then sync rooms.
 
-**If bot has its own dedicated phone number:**
-1. DM with the bot — Recommended. You message the bot's number directly.
-2. Solo group with the bot — A group with just you and the bot, no one else.
-
-Do NOT show options that don't apply to the user's setup. For example, don't offer "DM with the bot" if the bot shares the user's number (you can't DM yourself on WhatsApp).
-
-## 7. Sync and Select Group (If Group Channel)
-
-**For personal chat:** The JID is the bot's own phone number from step 6. Construct as `NUMBER@s.whatsapp.net`.
-
-**For DM with bot's dedicated number:** Ask for the bot's phone number, construct JID as `NUMBER@s.whatsapp.net`.
-
-**For group (solo or with bot):**
-1. Run `./.claude/skills/setup/scripts/05-sync-groups.sh` (Bash timeout: 60000ms)
+1. Run `./.claude/skills/setup/scripts/05-sync-rooms.sh` (Bash timeout: 60000ms)
 2. **If BUILD=failed:** Read `logs/setup.log`, fix the TypeScript error, re-run.
-3. **If GROUPS_IN_DB=0:** Check `logs/setup.log` for the sync output. Common causes: WhatsApp auth expired (re-run step 5), connection timeout (re-run sync script with longer timeout).
-4. Run `./.claude/skills/setup/scripts/05b-list-groups.sh` to get groups (pipe-separated JID|name lines). Do NOT display the output to the user.
-5. Pick the most likely candidates (e.g. groups with the trigger word or "NanoClaw" in the name, small/solo groups) and present them as AskUserQuestion options — show names only, not JIDs. Include an "Other" option if their group isn't listed. If they pick Other, search by name in the DB or re-run with a higher limit.
+3. **If ROOMS_IN_DB=0:** Check `logs/setup.log` for the sync output. Common causes: invalid Matrix credentials (re-run step 5), bot not invited to any rooms (ask user to invite the bot).
+4. Run `./.claude/skills/setup/scripts/05b-list-rooms.sh` to get rooms (pipe-separated JID|name lines). Do NOT display the output to the user.
+5. Pick the most likely candidates (e.g. rooms with the trigger word or "NanoClaw" in the name, DM rooms) and present them as AskUserQuestion options — show names only, not room IDs. Include an "Other" option if their room isn't listed. If they pick Other, search by name in the DB or re-run with a higher limit.
 
 ## 8. Register Channel
 
 Run `./.claude/skills/setup/scripts/06-register-channel.sh` with args:
-- `--jid "JID"` — from step 7
+- `--jid "ROOM_ID"` — from step 7
 - `--name "main"` — always "main" for the first channel
 - `--trigger "@TriggerWord"` — from step 6
 - `--folder "main"` — always "main" for the first channel
-- `--no-trigger-required` — if personal chat, DM, or solo group
+- `--no-trigger-required` — if DM room
 - `--assistant-name "Name"` — if trigger word differs from "Andy"
 
 ## 9. Mount Allowlist
@@ -181,7 +175,7 @@ Run `./.claude/skills/setup/scripts/08-setup-service.sh` and parse the status bl
 **If SERVICE_LOADED=false:**
 - Read `logs/setup.log` for the error.
 - Common fix: plist already loaded with different path. Unload the old one first, then re-run.
-- On macOS: check `launchctl list | grep nanoclaw` to see if it's loaded with an error status. If the PID column is `-` and the status column is non-zero, the service is crashing. Read `logs/nanoclaw.error.log` for the crash reason and fix it (common: wrong Node path, missing .env, missing auth).
+- On macOS: check `launchctl list | grep nanoclaw` to see if it's loaded with an error status. If the PID column is `-` and the status column is non-zero, the service is crashing. Read `logs/nanoclaw.error.log` for the crash reason and fix it (common: wrong Node path, missing .env, missing Matrix config).
 - On Linux: check `systemctl --user status nanoclaw` for the error and fix accordingly.
 - Re-run the setup-service script after fixing.
 
@@ -193,26 +187,30 @@ Run `./.claude/skills/setup/scripts/09-verify.sh` and parse the status block.
 - SERVICE=stopped → run `npm run build` first, then restart: `launchctl kickstart -k gui/$(id -u)/com.nanoclaw` (macOS) or `systemctl --user restart nanoclaw` (Linux). Re-check.
 - SERVICE=not_found → re-run step 10.
 - CREDENTIALS=missing → re-run step 4.
-- WHATSAPP_AUTH=not_found → re-run step 5.
+- MATRIX_CONFIG=missing → re-run step 5.
 - REGISTERED_GROUPS=0 → re-run steps 7-8.
 - MOUNT_ALLOWLIST=missing → run `./.claude/skills/setup/scripts/07-configure-mounts.sh --empty` to create a default.
 
 After fixing, re-run `09-verify.sh` to confirm everything passes.
 
-Tell user to test: send a message in their registered chat (with or without trigger depending on channel type).
+Tell user to test: send a message in their registered room (with or without trigger depending on channel type).
 
 Show the log tail command: `tail -f logs/nanoclaw.log`
 
 ## Troubleshooting
 
-**Service not starting:** Check `logs/nanoclaw.error.log`. Common causes: wrong Node path in plist (re-run step 10), missing `.env` (re-run step 4), missing WhatsApp auth (re-run step 5).
+**Service not starting:** Check `logs/nanoclaw.error.log`. Common causes: wrong Node path in plist (re-run step 10), missing `.env` (re-run step 4), missing Matrix config (re-run step 5).
 
 **Container agent fails ("Claude Code process exited with code 1"):** Ensure the container runtime is running — start it with the appropriate command for your runtime. Check container logs in `groups/main/logs/container-*.log`.
 
-**No response to messages:** Verify the trigger pattern matches. Main channel and personal/solo chats don't need a prefix. Check the registered JID in the database: `sqlite3 store/messages.db "SELECT * FROM registered_groups"`. Check `logs/nanoclaw.log`.
+**No response to messages:** Verify the trigger pattern matches. DM rooms don't need a prefix. Check the registered room ID in the database: `sqlite3 store/messages.db "SELECT * FROM registered_groups"`. Check `logs/nanoclaw.log`.
 
-**Messages sent but not received (DMs):** WhatsApp may use LID (Linked Identity) JIDs. Check logs for LID translation. Verify the registered JID has no device suffix (should be `number@s.whatsapp.net`, not `number:0@s.whatsapp.net`).
+**Invalid access token:** The Matrix access token may have expired or been revoked. Generate a fresh one from Element (Settings → Help & About → Access Token) or via the login API, update it in `.env`, and restart the service.
 
-**WhatsApp disconnected:** Run `npm run auth` to re-authenticate, then `npm run build && launchctl kickstart -k gui/$(id -u)/com.nanoclaw`.
+**Homeserver unreachable:** Verify the MATRIX_HOMESERVER_URL in `.env` is correct and the server is accessible: `curl -s https://HOMESERVER/_matrix/client/versions`. Check for typos, HTTPS requirements, or network issues.
+
+**Bot not in room:** The bot must be invited to and have joined the room. Check with: `curl -s -H "Authorization: Bearer TOKEN" https://HOMESERVER/_matrix/client/v3/joined_rooms`. If the room isn't listed, invite the bot from your Matrix client.
+
+**E2EE rooms:** NanoClaw does not support end-to-end encrypted rooms. The bot must be in unencrypted rooms, or the room's encryption must be disabled. Create a room with encryption turned off.
 
 **Unload service:** `launchctl unload ~/Library/LaunchAgents/com.nanoclaw.plist`
