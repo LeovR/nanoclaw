@@ -1,0 +1,26 @@
+# NanoClaw Docker Compose
+#
+# Run with: docker compose up -d
+#
+# IMPORTANT: Run from the project root directory. The ${PWD} mounts ensure
+# sub-container volume paths resolve correctly on the host Docker daemon.
+# The agent container image must be built first: ./container/build.sh
+
+services:
+  nanoclaw:
+    build: .
+    container_name: nanoclaw
+    restart: unless-stopped
+    # Working directory must match the host path for sub-container volume mounts
+    working_dir: ${PWD}
+    volumes:
+      # Docker socket — allows spawning sibling agent containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Project directory mounted at matching host path so sub-container
+      # bind mounts (which reference host paths) resolve correctly
+      - ${PWD}:${PWD}
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=${LOG_LEVEL:-info}
