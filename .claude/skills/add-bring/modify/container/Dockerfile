@@ -34,7 +34,7 @@ RUN npm install -g agent-browser @anthropic-ai/claude-code
 
 # Install bring-cli (shopping list management)
 COPY bring-cli/ /tmp/bring-cli/
-RUN cd /tmp/bring-cli && npm install && npx tsc && npm pack && npm install -g ./bring-cli-1.0.0.tgz && rm -rf /tmp/bring-cli
+RUN cd /tmp/bring-cli && npm install && npx tsc && npm install -g . && rm -rf /tmp/bring-cli
 
 # Create app directory
 WORKDIR /app

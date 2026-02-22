@@ -1,0 +1,21 @@
+skill: bring
+version: 1.0.0
+description: "Bring! shopping list management via bring-cli container tool"
+core_version: 0.1.0
+adds:
+  - container/bring-cli/bring-cli.ts
+  - container/bring-cli/bring-cli.test.ts
+  - container/bring-cli/package.json
+  - container/bring-cli/tsconfig.json
+  - container/skills/bring/SKILL.md
+modifies:
+  - container/Dockerfile
+  - src/container-runner.ts
+  - src/container-runner.test.ts
+structured:
+  env_additions:
+    - BRING_EMAIL
+    - BRING_PASSWORD
+conflicts: []
+depends: []
+test: "npx vitest run src/container-runner.test.ts"

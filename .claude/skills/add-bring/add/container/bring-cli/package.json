@@ -1,0 +1,18 @@
+{
+  "name": "bring-cli",
+  "version": "1.0.0",
+  "description": "CLI tool for managing Bring! shopping lists",
+  "type": "module",
+  "bin": {
+    "bring-cli": "./dist/bring-cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.18"
+  }
+}
