@@ -25,6 +25,8 @@ vi.mock('../db.js', () => ({
   getLastGroupSync: vi.fn(() => null),
   setLastGroupSync: vi.fn(),
   updateChatName: vi.fn(),
+  getRouterState: vi.fn(() => undefined),
+  setRouterState: vi.fn(),
 }));
 
 // Build a fake Matrix client that's an EventEmitter with the methods we need
@@ -49,8 +51,18 @@ let fakeClient: ReturnType<typeof createFakeClient>;
 
 // Mock matrix-js-sdk
 vi.mock('matrix-js-sdk', () => {
+  class MemoryStore {
+    private token: string | null = null;
+    getSyncToken() {
+      return this.token;
+    }
+    setSyncToken(token: string) {
+      this.token = token;
+    }
+  }
   return {
     createClient: vi.fn(() => fakeClient),
+    MemoryStore,
     ClientEvent: {
       Sync: 'sync',
     },
@@ -67,7 +79,13 @@ vi.mock('matrix-js-sdk', () => {
 });
 
 import { MatrixChannel, MatrixChannelOpts } from './matrix.js';
-import { getLastGroupSync, updateChatName, setLastGroupSync } from '../db.js';
+import {
+  getLastGroupSync,
+  updateChatName,
+  setLastGroupSync,
+  getRouterState,
+  setRouterState,
+} from '../db.js';
 
 // --- Test helpers ---
 
@@ -171,7 +189,7 @@ describe('MatrixChannel', () => {
 
       expect(channel.isConnected()).toBe(true);
       expect(fakeClient.startClient).toHaveBeenCalledWith({
-        initialSyncLimit: 0,
+        initialSyncLimit: 20,
       });
     });
 
@@ -598,6 +616,78 @@ describe('MatrixChannel', () => {
         'matrix',
         false,
       );
+    });
+  });
+
+  // --- Sync token persistence ---
+
+  describe('sync token persistence', () => {
+    it('seeds store with saved sync token on startup', async () => {
+      vi.mocked(getRouterState).mockReturnValue('s_saved_token_123');
+
+      const opts = createTestOpts();
+      const channel = new MatrixChannel(opts);
+
+      await connectChannel(channel);
+
+      const { createClient: mockCreateClient } = await import('matrix-js-sdk');
+      const callArgs = vi.mocked(mockCreateClient).mock
+        .lastCall![0] as unknown as Record<string, unknown>;
+      const store = callArgs.store as { getSyncToken: () => string | null };
+
+      expect(store).toBeDefined();
+      expect(store.getSyncToken()).toBe('s_saved_token_123');
+    });
+
+    it('uses null sync token on first run', async () => {
+      vi.mocked(getRouterState).mockReturnValue(undefined);
+
+      const opts = createTestOpts();
+      const channel = new MatrixChannel(opts);
+
+      await connectChannel(channel);
+
+      const { createClient: mockCreateClient } = await import('matrix-js-sdk');
+      const callArgs = vi.mocked(mockCreateClient).mock
+        .lastCall![0] as unknown as Record<string, unknown>;
+      const store = callArgs.store as { getSyncToken: () => string | null };
+
+      expect(store).toBeDefined();
+      expect(store.getSyncToken()).toBeNull();
+    });
+
+    it('persists sync token when SDK updates it', async () => {
+      const opts = createTestOpts();
+      const channel = new MatrixChannel(opts);
+
+      await connectChannel(channel);
+
+      const { createClient: mockCreateClient } = await import('matrix-js-sdk');
+      const callArgs = vi.mocked(mockCreateClient).mock
+        .lastCall![0] as unknown as Record<string, unknown>;
+      const store = callArgs.store as {
+        getSyncToken: () => string | null;
+        setSyncToken: (token: string) => void;
+      };
+
+      store.setSyncToken('s_new_token_456');
+
+      expect(setRouterState).toHaveBeenCalledWith(
+        'matrix_sync_token',
+        's_new_token_456',
+      );
+      expect(store.getSyncToken()).toBe('s_new_token_456');
+    });
+
+    it('passes initialSyncLimit: 20', async () => {
+      const opts = createTestOpts();
+      const channel = new MatrixChannel(opts);
+
+      await connectChannel(channel);
+
+      expect(fakeClient.startClient).toHaveBeenCalledWith({
+        initialSyncLimit: 20,
+      });
     });
   });
 
