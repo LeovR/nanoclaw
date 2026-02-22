@@ -55,7 +55,6 @@ describe('bring skill package', () => {
     expect(content).toContain("'add'");
     expect(content).toContain("'remove'");
     expect(content).toContain("'complete'");
-    expect(content).toContain("'notify'");
     expect(content).toContain("'help'");
   });
 
@@ -103,7 +102,6 @@ describe('bring skill package', () => {
     expect(content).toContain('bring-cli add');
     expect(content).toContain('bring-cli remove');
     expect(content).toContain('bring-cli complete');
-    expect(content).toContain('bring-cli notify');
     expect(content).toContain('allowed-tools');
   });
 });

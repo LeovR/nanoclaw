@@ -14,7 +14,6 @@ bring-cli items <list>                    # Show items on a list
 bring-cli add <list> <item> [spec]        # Add item with optional details
 bring-cli remove <list> <item>            # Remove item
 bring-cli complete <list> <item>          # Mark as purchased
-bring-cli notify <list> GOING_SHOPPING    # Notify list members
 ```
 
 ## Commands
@@ -41,13 +40,6 @@ bring-cli add Groceries Eggs 12 pack      # Add "Eggs" with spec "12 pack"
 ```bash
 bring-cli remove Groceries Milk           # Remove from list entirely
 bring-cli complete Groceries Milk         # Mark as purchased (moves to recently)
-```
-
-### Notifications
-
-```bash
-bring-cli notify Groceries GOING_SHOPPING # Tell others you're going shopping
-bring-cli notify Groceries URGENT_MESSAGE # Send urgent notification
 ```
 
 ## List name matching
