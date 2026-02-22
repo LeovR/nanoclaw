@@ -49,10 +49,10 @@ When you learn something important:
 
 ## Message Formatting
 
-NEVER use markdown. Only use WhatsApp/Telegram formatting:
-- *single asterisks* for bold (NEVER **double asterisks**)
-- _underscores_ for italic
-- • bullet points
-- ```triple backticks``` for code
-
-No ## headings. No [links](url). No **double stars**.
+Use standard Markdown formatting. Matrix supports full Markdown rendering:
+- **bold**, *italic*, ~~strikethrough~~
+- `inline code` and ```code blocks```
+- [links](url)
+- ## headings
+- - bullet lists and 1. numbered lists
+- > blockquotes
