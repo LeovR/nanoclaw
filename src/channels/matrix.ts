@@ -1,5 +1,6 @@
 import {
   createClient,
+  MemoryStore,
   ClientEvent,
   RoomEvent,
   EventType,
@@ -12,7 +13,13 @@ import {
   MATRIX_ACCESS_TOKEN,
   MATRIX_BOT_USER_ID,
 } from '../config.js';
-import { getLastGroupSync, setLastGroupSync, updateChatName } from '../db.js';
+import {
+  getLastGroupSync,
+  setLastGroupSync,
+  updateChatName,
+  getRouterState,
+  setRouterState,
+} from '../db.js';
 import { logger } from '../logger.js';
 import {
   Channel,
@@ -54,10 +61,22 @@ export class MatrixChannel implements Channel {
       throw new Error('MATRIX_BOT_USER_ID is required');
     }
 
+    const store = new MemoryStore();
+    const savedToken = getRouterState('matrix_sync_token');
+    if (savedToken) {
+      store.setSyncToken(savedToken);
+    }
+    const originalSetSyncToken = store.setSyncToken.bind(store);
+    store.setSyncToken = (token: string) => {
+      originalSetSyncToken(token);
+      setRouterState('matrix_sync_token', token);
+    };
+
     this.client = createClient({
       baseUrl: MATRIX_HOMESERVER_URL,
       accessToken: MATRIX_ACCESS_TOKEN,
       userId: MATRIX_BOT_USER_ID,
+      store,
     });
 
     return new Promise<void>((resolve) => {
@@ -102,7 +121,7 @@ export class MatrixChannel implements Channel {
         },
       );
 
-      this.client.startClient({ initialSyncLimit: 0 });
+      this.client.startClient({ initialSyncLimit: 20 });
     });
   }
 
