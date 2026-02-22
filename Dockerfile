@@ -36,7 +36,7 @@ WORKDIR /app
 
 # Install production dependencies (better-sqlite3 needs build tools in node:22-slim)
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci
 
 # Copy source and compile TypeScript
 COPY tsconfig.json ./
