@@ -164,6 +164,7 @@ function buildVolumeMounts(
   // Per-group IPC namespace: each group gets its own IPC directory
   // This prevents cross-group privilege escalation via IPC
   const groupIpcDir = path.join(DATA_DIR, 'ipc', group.folder);
+  ensureWritableDir(groupIpcDir);
   ensureWritableDir(path.join(groupIpcDir, 'messages'));
   ensureWritableDir(path.join(groupIpcDir, 'tasks'));
   ensureWritableDir(path.join(groupIpcDir, 'input'));
