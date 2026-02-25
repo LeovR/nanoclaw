@@ -28,6 +28,16 @@ import { RegisteredGroup } from './types.js';
 const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
 const OUTPUT_END_MARKER = '---NANOCLAW_OUTPUT_END---';
 
+/**
+ * Ensure a directory exists and is writable by the sub-container user.
+ * When the orchestrator runs as root (e.g. in Docker), directories it creates
+ * are owned by root — the sub-container's node user (uid 1000) can't write to them.
+ */
+function ensureWritableDir(dirPath: string): void {
+  fs.mkdirSync(dirPath, { recursive: true });
+  fs.chmodSync(dirPath, 0o777);
+}
+
 function getHomeDir(): string {
   const home = process.env.HOME || os.homedir();
   if (!home) {
@@ -110,7 +120,7 @@ function buildVolumeMounts(
     group.folder,
     '.claude',
   );
-  fs.mkdirSync(groupSessionsDir, { recursive: true });
+  ensureWritableDir(groupSessionsDir);
   const settingsFile = path.join(groupSessionsDir, 'settings.json');
   if (!fs.existsSync(settingsFile)) {
     fs.writeFileSync(settingsFile, JSON.stringify({
@@ -154,9 +164,9 @@ function buildVolumeMounts(
   // Per-group IPC namespace: each group gets its own IPC directory
   // This prevents cross-group privilege escalation via IPC
   const groupIpcDir = path.join(DATA_DIR, 'ipc', group.folder);
-  fs.mkdirSync(path.join(groupIpcDir, 'messages'), { recursive: true });
-  fs.mkdirSync(path.join(groupIpcDir, 'tasks'), { recursive: true });
-  fs.mkdirSync(path.join(groupIpcDir, 'input'), { recursive: true });
+  ensureWritableDir(path.join(groupIpcDir, 'messages'));
+  ensureWritableDir(path.join(groupIpcDir, 'tasks'));
+  ensureWritableDir(path.join(groupIpcDir, 'input'));
   const hostGroupIpcDir = path.join(HOST_DATA_DIR, 'ipc', group.folder);
   mounts.push({
     hostPath: hostGroupIpcDir,
@@ -241,7 +251,7 @@ export async function runContainerAgent(
   const startTime = Date.now();
 
   const groupDir = path.join(GROUPS_DIR, group.folder);
-  fs.mkdirSync(groupDir, { recursive: true });
+  ensureWritableDir(groupDir);
 
   const mounts = buildVolumeMounts(group, input.isMain);
   const safeName = group.folder.replace(/[^a-zA-Z0-9-]/g, '-');
