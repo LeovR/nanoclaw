@@ -33,6 +33,7 @@ export const SCHEDULER_POLL_INTERVAL = 60000;
 
 // Absolute paths needed for container mounts
 const PROJECT_ROOT = process.cwd();
+const HOST_PROJECT_ROOT = process.env.HOST_PROJECT_DIR || PROJECT_ROOT;
 const HOME_DIR = process.env.HOME || os.homedir();
 
 // Mount security: allowlist stored OUTSIDE project root, never mounted into containers
@@ -45,6 +46,9 @@ export const MOUNT_ALLOWLIST_PATH = path.join(
 export const STORE_DIR = path.resolve(PROJECT_ROOT, 'store');
 export const GROUPS_DIR = path.resolve(PROJECT_ROOT, 'groups');
 export const DATA_DIR = path.resolve(PROJECT_ROOT, 'data');
+export const HOST_GROUPS_DIR = path.resolve(HOST_PROJECT_ROOT, 'groups');
+export const HOST_DATA_DIR = path.resolve(HOST_PROJECT_ROOT, 'data');
+export { HOST_PROJECT_ROOT };
 export const MAIN_GROUP_FOLDER = 'main';
 
 export const CONTAINER_IMAGE =

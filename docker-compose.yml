@@ -24,3 +24,4 @@ services:
     environment:
       - NODE_ENV=production
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - HOST_PROJECT_DIR=${PWD}
