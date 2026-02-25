@@ -166,15 +166,17 @@ function buildVolumeMounts(
 
   // Mount agent-runner source from host — recompiled on container startup.
   // Bypasses sticky build cache for code changes.
-  // Only available in dev; in production the agent image has the source built in.
-  const agentRunnerSrc = path.join(process.cwd(), 'container', 'agent-runner', 'src');
-  if (fs.existsSync(agentRunnerSrc)) {
-    const hostAgentRunnerSrc = path.join(HOST_PROJECT_ROOT, 'container', 'agent-runner', 'src');
-    mounts.push({
-      hostPath: hostAgentRunnerSrc,
-      containerPath: '/app/src',
-      readonly: true,
-    });
+  // Only in dev (paths match); in Docker deployments the local fs.existsSync()
+  // sees the image's own files, not the host, so the check would be misleading.
+  if (HOST_PROJECT_ROOT === process.cwd()) {
+    const agentRunnerSrc = path.join(process.cwd(), 'container', 'agent-runner', 'src');
+    if (fs.existsSync(agentRunnerSrc)) {
+      mounts.push({
+        hostPath: agentRunnerSrc,
+        containerPath: '/app/src',
+        readonly: true,
+      });
+    }
   }
 
   // Additional mounts validated against external allowlist (tamper-proof from containers)
